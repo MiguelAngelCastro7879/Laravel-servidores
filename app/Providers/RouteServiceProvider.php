@@ -13,11 +13,22 @@ class RouteServiceProvider extends ServiceProvider
     /**
      * The path to the "home" route for your application.
      *
-     * Typically, users are redirected here after authentication.
+     * Users are redirected here after confirmation code.
      *
      * @var string
      */
     public const HOME = '/dashboard';
+
+    
+    /**
+     * The path to the "verify_codecode" route for your application.
+     *
+     * Typically, users are redirected here after authentication.
+     *
+     * @var string
+     */
+    public const VERIFY_CODE = '/verify/code';
+    
 
     /**
      * Define your route model bindings, pattern filters, and other route configuration.
