@@ -10,6 +10,6 @@
     <h1>Verificacion</h1>
     <p>En este enlace habrá un codigo que debes meter en tu apkiacion de autenticacion</p>
     <p>Entra a este enlace para continuar con tu inicio de sesion </p> 
-    <a> {{ $code }}</a>
+    <a href="{{$code}}"> {{ $code }}</a>
 </body>
 </html>

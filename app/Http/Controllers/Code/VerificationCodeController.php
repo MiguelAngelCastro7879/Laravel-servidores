@@ -23,45 +23,53 @@ class VerificationCodeController extends Controller
      */
     public function store(Request $request)
     {
-        $codigoLogin = '';
-        $codigoVerificación = '';
-        for ($i = 0; $i < 6; $i++) {
-            $codigoLogin .= mt_rand(0, 9);
-            $codigoVerificación .= mt_rand(0, 9);
+        $encryption_key = env('CRYPT_KEY');
+        $codigoLogin = strval(mt_rand(100000, 999999));
+        $codigoVerificación = strval(mt_rand(100000, 999999));
+
+        $has_code = VerificationCode::where('user_id', Auth::user()->id)
+            ->where('status',true)
+            ->get();
+        if(count($has_code)==0){
+            $code_gen = new VerificationCode();
+            $code_gen->user_id = Auth::user()->id;
+            $code_gen->login_code = Hash::make($codigoLogin);
+            $code_gen->login_code_confirmation = Crypt::encryptString($codigoLogin, $encryption_key);
+            $code_gen->verify_code = Hash::make($codigoVerificación);
+            $code_gen->verify_code_confirmation = Crypt::encryptString($codigoVerificación, $encryption_key);
+            $code_gen->save();
+    
+            $signed_url = URL::temporarySignedRoute(
+                'show_code', now()->addMinutes(30), Auth::user()->id
+            );
+            $mail= new VerificationCodeMailer($signed_url);
+            Mail::to(Auth::user()->email)
+                ->send($mail);
         }
-        
-        $code_gen = new VerificationCode();
-        $code_gen->user_id = Auth::user()->id;
-        $code_gen->login_code = Hash::make($codigoLogin);
-        $code_gen->login_code_confirmation = Crypt::encryptString($codigoLogin);
-        $code_gen->verify_code = Hash::make($codigoVerificación);
-        $code_gen->verify_code_confirmation = Crypt::encryptString($codigoVerificación);
-        $code_gen->save();
-
-        $signed_url = URL::temporarySignedRoute(
-            'show_code', now()->addMinutes(30), Auth::user()->id
-        );
-
-        $mail= new VerificationCodeMailer($signed_url);
-        Mail::to(Auth::user()->email)
-            ->send($mail);
         return view('code.verify_code');
     }
 
     public function show(Request $request)
     {
-        $code = VerificationCode::where('user_id', Auth::user()->id)->first();
-        return view('code.show_code',['code'=>Crypt::decryptString($code->verify_code_confirmation)]);
+        $encryption_key = env('CRYPT_KEY');
+        $code = VerificationCode::where('user_id', Auth::user()->id)
+            ->where('status',true)
+            ->first();
+        return view('code.show_code',['code'=>Crypt::decryptString($code->verify_code_confirmation, $encryption_key)]);
     }
     
     public function validate_code_login(Request $request)
     {
+        $encryption_key = env('CRYPT_KEY');
         $login_code = $request->input('login_code');
         $user_codes = VerificationCode::where('user_id', Auth::user()->id)
             ->where('status',true)
             ->get();
         foreach ($user_codes as $codes) {
             if(Hash::check($login_code, $codes->login_code)){
+                $trust_code = VerificationCode::find($codes->id);
+                $trust_code->status = false;
+                $trust_code->save();
                 Session::put('code', $codes->login_code);
                 return redirect('dashboard');
             }
@@ -71,6 +79,7 @@ class VerificationCodeController extends Controller
     
     public function validate_code_application(Request $request)
     {
+        $encryption_key = env('CRYPT_KEY');
         $application_code = $request->input('application_code');
         $user_codes = VerificationCode::where('status', true)->get();
         
@@ -78,7 +87,7 @@ class VerificationCodeController extends Controller
             if(Hash::check($application_code, $codes->verify_code)){
                 // error_log("buen codigo bro");
                 return response()->json([
-                    'login_code'=> Crypt::decryptString($codes->login_code_confirmation)
+                    'login_code'=> Crypt::decryptString($codes->login_code_confirmation, $encryption_key)
                 ],201);
             }
         }
