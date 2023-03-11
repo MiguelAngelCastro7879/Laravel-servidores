@@ -50,17 +50,18 @@ class VerificationCodeController extends Controller
     }
 
     public function show(Request $request)
-    {
-        if(Auth::user()->id){
+    {   
+        try {
             $encryption_key = env('CRYPT_KEY');
             $code = VerificationCode::where('user_id', Auth::user()->id)
                 ->where('status',true)
                 ->first();
             return view('code.show_code',['code'=>Crypt::decryptString($code->verify_code_confirmation, $encryption_key)]);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'message'=> "Bad Request"
+            ], 400); 
         }
-        return response()->json([
-            'message'=> "Bad Request"
-        ], 400); 
     }
     
     public function validate_code_login(Request $request)
